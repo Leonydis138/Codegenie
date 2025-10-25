@@ -1,6 +1,83 @@
+import requests
+import base64
+import json
+from pathlib import Path
+
+# GitHub configuration
+USERNAME = "Leonydis138"
+REPO_NAME = "Codegenie"
+GITHUB_API_URL = "https://api.github.com"
+
+headers = {
+    "Authorization": f"token {TOKEN}",
+    "Accept": "application/vnd.github.v3+json"
+}
+
+def create_file(path, content, message="Initial commit"):
+    """Create a file in the repository"""
+    url = f"{GITHUB_API_URL}/repos/{USERNAME}/{REPO_NAME}/contents/{path}"
+    
+    # Encode content
+    content_bytes = content.encode('utf-8')
+    content_b64 = base64.b64encode(content_bytes).decode('utf-8')
+    
+    data = {
+        "message": message,
+        "content": content_b64
+    }
+    
+    response = requests.put(url, json=data, headers=headers)
+    if response.status_code in [201, 200]:
+        print(f"✅ Created {path}")
+        return True
+    else:
+        print(f"❌ Failed to create {path}: {response.status_code} - {response.text}")
+        return False
+
+def check_repo_exists():
+    """Check if repository exists"""
+    url = f"{GITHUB_API_URL}/repos/{USERNAME}/{REPO_NAME}"
+    response = requests.get(url, headers=headers)
+    return response.status_code == 200
+
+def create_repository():
+    """Create the repository if it doesn't exist"""
+    if check_repo_exists():
+        print("✅ Repository already exists")
+        return True
+    
+    url = f"{GITHUB_API_URL}/user/repos"
+    data = {
+        "name": REPO_NAME,
+        "description": "AI-powered app generator that transforms ideas into working web applications",
+        "private": False,
+        "auto_init": False
+    }
+    
+    response = requests.post(url, json=data, headers=headers)
+    if response.status_code == 201:
+        print("✅ Repository created successfully")
+        return True
+    else:
+        print(f"❌ Failed to create repository: {response.status_code} - {response.text}")
+        return False
+
+print("🚀 Starting CodeGenie Pro deployment...")
+
+# First, create repository if needed
+if not create_repository():
+    print("❌ Cannot proceed without repository")
+    exit(1)
+
+# Define all files to create
+files = {
+    # Main application files
+    "streamlit_app.py": '''import streamlit as st
 import os
 import time
 from pathlib import Path
+from codegenie import CodeGenieAutoBuilder
+from codegenie.utils.diagram_generator import generate_architecture_diagram, generate_workflow_diagram
 
 st.set_page_config(
     page_title="CodeGenie Pro",
@@ -10,7 +87,7 @@ st.set_page_config(
 )
 
 # Custom CSS
-st.markdown(\"\"\"
+st.markdown("""
 <style>
     .main-header {
         font-size: 3.0rem;
@@ -36,7 +113,7 @@ st.markdown(\"\"\"
         background: #f8f9fa;
     }
 </style>
-\"\"\", unsafe_allow_html=True)
+""", unsafe_allow_html=True)
 
 def main():
     if 'builder' not in st.session_state:
@@ -47,7 +124,7 @@ def main():
         st.title("CodeGenie Pro")
         st.markdown("---")
         st.subheader("🚀 Quick Start")
-        st.markdown("1. Describe your app idea\\\\n2. Generate\\\\n3. Download and run")
+        st.markdown("1. Describe your app idea\\n2. Generate\\n3. Download and run")
         st.markdown("---")
         st.subheader("📊 Stats")
         st.metric("Projects Built", len(st.session_state.builder.projects))
@@ -170,18 +247,18 @@ def show_architecture():
     with col1:
         st.subheader("📊 Architecture Diagram")
         generate_architecture_diagram()
-        st.markdown(\"\"\"
+        st.markdown("""
         ### 🎯 Core Components
         **1. Idea Analyzer** (NLP & classification)
         **2. Template Engine** (Jinja / static HTML)
-        \"\"\")
+        """)
     with col2:
         st.subheader("🔄 Workflow Process")
         generate_workflow_diagram()
-        st.markdown(\"\"\"
+        st.markdown("""
         **3. UI Designer** - responsive generation
         **4. File Manager** - packaging & zip
-        \"\"\")
+        """)
     st.markdown("---")
     st.subheader("🛠️ Technology Stack")
     tech_cols = st.columns(4)
@@ -220,18 +297,18 @@ def show_documentation():
     tab1, tab2, tab3, tab4 = st.tabs(["Getting Started", "API Reference", "Tutorials", "FAQ"])
     with tab1:
         st.subheader("🚀 Quick Start Guide")
-        st.markdown(\"\"\"
+        st.markdown("""
         1. Describe your idea in plain English.
         2. Click Generate.
         3. Download the ZIP and run the app (open frontend/index.html).
-        \"\"\")
+        """)
     with tab2:
         st.subheader("🔧 API Reference")
-        st.code(\"\"\"
+        st.code("""
 from codegenie import CodeGenieAutoBuilder
 builder = CodeGenieAutoBuilder()
 result = builder.build_application("I want a todo app")
-\"\"\", language="python")
+""", language="python")
     with tab3:
         st.subheader("🎓 Tutorials")
         st.markdown("Video & written tutorials coming soon.")
@@ -249,10 +326,10 @@ def show_about():
     st.header("🚀 About CodeGenie Pro")
     col1, col2 = st.columns([2, 1])
     with col1:
-        st.markdown(\"\"\"
+        st.markdown("""
         ## 🤖 What is CodeGenie Pro?
         AI-powered app generator that transforms ideas into working web apps.
-        \"\"\")
+        """)
     with col2:
         st.image("https://img.icons8.com/color/200/000000/robot.png", width=140)
     st.markdown("### 🔗 Links")
@@ -262,21 +339,21 @@ def show_about():
 
 if __name__ == "__main__":
     main()
-""",
-        
-        "requirements.txt": """streamlit>=1.28.0
+''',
+    
+    "requirements.txt": '''streamlit>=1.28.0
 matplotlib>=3.7.0
 networkx>=3.0
 Jinja2>=3.1.0
 pytest>=7.0.0
-""",
-        
-        "codegenie/__init__.py": """from .auto_builder import CodeGenieAutoBuilder
+''',
+    
+    "codegenie/__init__.py": '''from .auto_builder import CodeGenieAutoBuilder
 
 __all__ = ["CodeGenieAutoBuilder"]
-""",
-        
-        "codegenie/auto_builder.py": """import os
+''',
+    
+    "codegenie/auto_builder.py": '''import os
 import json
 import shutil
 import zipfile
@@ -300,7 +377,7 @@ class CodeGenieAutoBuilder:
         }
 
     def build_application(self, idea: str) -> Dict:
-        \"\"\"Main method to build application from idea\"\"\"
+        """Main method to build application from idea"""
         try:
             # Analyze the idea to determine app type
             app_type = self.analyze_idea(idea)
@@ -338,7 +415,7 @@ class CodeGenieAutoBuilder:
             return {"status": "error", "message": str(e)}
 
     def analyze_idea(self, idea: str) -> str:
-        \"\"\"Analyze the idea to determine app type\"\"\"
+        """Analyze the idea to determine app type"""
         idea_lower = idea.lower()
         
         if any(word in idea_lower for word in ['todo', 'task', 'checklist', 'reminder']):
@@ -355,7 +432,7 @@ class CodeGenieAutoBuilder:
             return "todo_app"  # default
 
     def generate_project_name(self, idea: str) -> str:
-        \"\"\"Generate a project name from the idea\"\"\"
+        """Generate a project name from the idea"""
         words = idea.split()[:3]
         name = "_".join(words).lower().replace(' ', '_')
         # Remove special characters
@@ -363,7 +440,7 @@ class CodeGenieAutoBuilder:
         return f"app_{name}"
 
     def _create_project_structure(self, project_path: Path):
-        \"\"\"Create basic project structure\"\"\"
+        """Create basic project structure"""
         directories = [
             "frontend",
             "backend", 
@@ -376,7 +453,7 @@ class CodeGenieAutoBuilder:
             (project_path / directory).mkdir(parents=True, exist_ok=True)
 
     def generate_todo_app(self, project_name: str, idea: str) -> Dict:
-        \"\"\"Generate a todo application\"\"\"
+        """Generate a todo application"""
         project_path = self.base_path / project_name
         
         try:
@@ -489,7 +566,7 @@ class CodeGenieAutoBuilder:
             return {"status": "error", "message": str(e)}
 
     def generate_blog_app(self, project_name: str, idea: str) -> Dict:
-        \"\"\"Generate a blog application\"\"\"
+        """Generate a blog application"""
         project_path = self.base_path / project_name
         
         try:
@@ -511,7 +588,7 @@ class CodeGenieAutoBuilder:
             return {"status": "error", "message": str(e)}
 
     def generate_notes_app(self, project_name: str, idea: str) -> Dict:
-        \"\"\"Generate a notes application\"\"\"
+        """Generate a notes application"""
         project_path = self.base_path / project_name
         
         try:
@@ -533,7 +610,7 @@ class CodeGenieAutoBuilder:
             return {"status": "error", "message": str(e)}
 
     def generate_contacts_app(self, project_name: str, idea: str) -> Dict:
-        \"\"\"Generate a contacts application\"\"\"
+        """Generate a contacts application"""
         project_path = self.base_path / project_name
         
         try:
@@ -555,7 +632,7 @@ class CodeGenieAutoBuilder:
             return {"status": "error", "message": str(e)}
 
     def generate_library_app(self, project_name: str, idea: str) -> Dict:
-        \"\"\"Generate a library application\"\"\"
+        """Generate a library application"""
         project_path = self.base_path / project_name
         
         try:
@@ -577,7 +654,7 @@ class CodeGenieAutoBuilder:
             return {"status": "error", "message": str(e)}
 
     def create_project_zip(self, project_path: str) -> Optional[str]:
-        \"\"\"Create a ZIP file of the generated project\"\"\"
+        """Create a ZIP file of the generated project"""
         try:
             project_dir = Path(project_path)
             zip_path = project_dir.parent / f"{project_dir.name}.zip"
@@ -594,7 +671,7 @@ class CodeGenieAutoBuilder:
             return None
 
     def _render_template(self, template_type: str, context: Dict) -> str:
-        \"\"\"Render template with context\"\"\"
+        """Render template with context"""
         template_str = self.templates.get(template_type, self.templates["todo_app"])
         template = Template(template_str)
         return template.render(**context)
@@ -810,9 +887,9 @@ class CodeGenieAutoBuilder:
 </body>
 </html>
         '''
-""",
-        
-        "codegenie/utils/diagram_generator.py": """import streamlit as st
+''',
+    
+    "codegenie/utils/diagram_generator.py": '''import streamlit as st
 import matplotlib.pyplot as plt
 from matplotlib.patches import FancyBboxPatch
 
@@ -853,9 +930,9 @@ def generate_workflow_diagram():
     ax.set_xticks([])
     ax.set_yticks([])
     st.pyplot(fig)
-""",
-        
-        "tests/test_auto_builder.py": """import os
+''',
+    
+    "tests/test_auto_builder.py": '''import os
 import shutil
 from codegenie.auto_builder import CodeGenieAutoBuilder
 
@@ -869,9 +946,9 @@ def test_generate_todo_app(tmp_path):
     assert os.path.isfile(os.path.join(project_path, "frontend", "index.html"))
     # Clean up
     shutil.rmtree(project_path, ignore_errors=True)
-""",
-        
-        ".github/workflows/ci.yml": """name: CI
+''',
+    
+    ".github/workflows/ci.yml": '''name: CI
 
 on:
   push:
@@ -917,9 +994,9 @@ jobs:
         run: |
           black --check .
           flake8
-""",
-        
-        "Dockerfile": """FROM python:3.11-slim
+''',
+    
+    "Dockerfile": '''FROM python:3.11-slim
 
 WORKDIR /app
 COPY . /app
@@ -930,9 +1007,9 @@ RUN pip install --upgrade pip \\
 EXPOSE 8501
 
 CMD ["streamlit", "run", "streamlit_app.py", "--server.port=8501", "--server.address=0.0.0.0"]
-""",
-        
-        ".gitignore": """# Byte-compiled / caches
+''',
+    
+    ".gitignore": '''# Byte-compiled / caches
 __pycache__/
 *.pyc
 *.pyo
@@ -963,9 +1040,9 @@ generated_apps/**/__pycache__/
 # Packaging
 dist/
 build/
-""",
-        
-        "LICENSE": """MIT License
+''',
+    
+    "LICENSE": '''MIT License
 
 Copyright (c) 2025 CodeGenie
 
@@ -986,9 +1063,9 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-""",
-        
-        "README.md": """# 🚀 CodeGenie Pro
+''',
+    
+    "README.md": '''# 🚀 CodeGenie Pro
 
 AI-powered app generator that transforms your ideas into working web applications instantly!
 
@@ -1005,6 +1082,10 @@ AI-powered app generator that transforms your ideas into working web application
 ### Option 1: Run Locally
 
 ```bash
+# Clone the repository
+git clone https://github.com/Leonydis138/Codegenie.git
+cd Codegenie
+
 # Install dependencies
 pip install -r requirements.txt
 
