@@ -1,84 +1,283 @@
-import requests
-import base64
-import json
-from pathlib import Path
-
-# GitHub configuration
-USERNAME = "Leonydis138"
-REPO_NAME = "Codegenie"
-GITHUB_API_URL = "https://api.github.com"
-
-headers = {
-    "Authorization": f"token {TOKEN}",
-    "Accept": "application/vnd.github.v3+json"
-}
-
-def create_file(path, content, message="Initial commit"):
-    """Create a file in the repository"""
-    url = f"{GITHUB_API_URL}/repos/{USERNAME}/{REPO_NAME}/contents/{path}"
-    
-    # Encode content
-    content_bytes = content.encode('utf-8')
-    content_b64 = base64.b64encode(content_bytes).decode('utf-8')
-    
-    data = {
-        "message": message,
-        "content": content_b64
-    }
-    
-    response = requests.put(url, json=data, headers=headers)
-    if response.status_code in [201, 200]:
-        print(f"✅ Created {path}")
-        return True
-    else:
-        print(f"❌ Failed to create {path}: {response.status_code} - {response.text}")
-        return False
-
-def check_repo_exists():
-    """Check if repository exists"""
-    url = f"{GITHUB_API_URL}/repos/{USERNAME}/{REPO_NAME}"
-    response = requests.get(url, headers=headers)
-    return response.status_code == 200
-
-def create_repository():
-    """Create the repository if it doesn't exist"""
-    if check_repo_exists():
-        print("✅ Repository already exists")
-        return True
-    
-    url = f"{GITHUB_API_URL}/user/repos"
-    data = {
-        "name": REPO_NAME,
-        "description": "AI-powered app generator that transforms ideas into working web applications",
-        "private": False,
-        "auto_init": False
-    }
-    
-    response = requests.post(url, json=data, headers=headers)
-    if response.status_code == 201:
-        print("✅ Repository created successfully")
-        return True
-    else:
-        print(f"❌ Failed to create repository: {response.status_code} - {response.text}")
-        return False
-
-print("🚀 Starting CodeGenie Pro deployment...")
-
-# First, create repository if needed
-if not create_repository():
-    print("❌ Cannot proceed without repository")
-    exit(1)
-
-# Define all files to create
-files = {
-    # Main application files
-    "streamlit_app.py": '''import streamlit as st
+import streamlit as st
 import os
 import time
+import zipfile
+import shutil
 from pathlib import Path
-from codegenie import CodeGenieAutoBuilder
-from codegenie.utils.diagram_generator import generate_architecture_diagram, generate_workflow_diagram
+from jinja2 import Template
+import matplotlib.pyplot as plt
+from matplotlib.patches import FancyBboxPatch, Circle
 
+# Simple CodeGenie class - everything in one file
+class CodeGenieAutoBuilder:
+    def __init__(self):
+        self.projects = []
+        self.base_path = Path("generated_apps")
+        self.base_path.mkdir(exist_ok=True)
+
+    def build_application(self, idea: str):
+        try:
+            # Analyze the idea to determine app type
+            app_type = self.analyze_idea(idea)
+            project_name = self.generate_project_name(idea)
+            project_path = self.base_path / project_name
+            
+            # Create project structure
+            self._create_project_structure(project_path)
+            
+            # Generate app based on type
+            if app_type == "todo_app":
+                result = self.generate_todo_app(project_name, idea)
+            else:
+                # Default to todo app
+                result = self.generate_todo_app(project_name, idea)
+            
+            self.projects.append({
+                "name": project_name,
+                "idea": idea,
+                "type": app_type,
+                "path": str(project_path)
+            })
+            
+            return result
+            
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
+    def analyze_idea(self, idea: str):
+        idea_lower = idea.lower()
+        
+        if any(word in idea_lower for word in ['todo', 'task', 'checklist', 'reminder']):
+            return "todo_app"
+        elif any(word in idea_lower for word in ['blog', 'post', 'article', 'publish']):
+            return "blog_app"
+        elif any(word in idea_lower for word in ['note', 'memo', 'journal', 'diary']):
+            return "notes_app"
+        elif any(word in idea_lower for word in ['contact', 'address', 'phone', 'email']):
+            return "contacts_app"
+        elif any(word in idea_lower for word in ['book', 'library', 'read', 'collection']):
+            return "library_app"
+        else:
+            return "todo_app"
+
+    def generate_project_name(self, idea: str):
+        words = idea.split()[:3]
+        name = "_".join(words).lower().replace(' ', '_')
+        name = ''.join(c for c in name if c.isalnum() or c == '_')
+        return f"app_{name}"
+
+    def _create_project_structure(self, project_path: Path):
+        directories = [
+            "frontend",
+            "assets/css",
+            "assets/js",
+            "data"
+        ]
+        
+        for directory in directories:
+            (project_path / directory).mkdir(parents=True, exist_ok=True)
+
+    def generate_todo_app(self, project_name: str, idea: str):
+        project_path = self.base_path / project_name
+        
+        try:
+            # Create HTML file
+            html_content = f'''<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{project_name} - Todo App</title>
+    <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 {project_name}</h1>
+        <p><em>Generated from: "{idea}"</em></p>
+        
+        <div class="todo-input">
+            <input type="text" id="todoInput" placeholder="Enter a new task...">
+            <button onclick="addTodo()">Add Task</button>
+        </div>
+        
+        <div id="todoList"></div>
+    </div>
+    
+    <script src="assets/js/app.js"></script>
+</body>
+</html>'''
+            
+            (project_path / "frontend" / "index.html").write_text(html_content)
+            
+            # Create CSS file
+            css_content = '''body {
+    font-family: Arial, sans-serif;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+}
+.container {
+    background: white;
+    padding: 30px;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+.todo-item {
+    padding: 10px;
+    margin: 5px 0;
+    background: #f8f9fa;
+    border-radius: 5px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.completed {
+    text-decoration: line-through;
+    opacity: 0.6;
+}
+.todo-input {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+.todo-input input {
+    flex: 1;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+}
+.todo-input button {
+    padding: 10px 20px;
+    background: #667eea;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}'''
+            (project_path / "assets" / "css" / "style.css").write_text(css_content)
+            
+            # Create JavaScript file
+            js_content = '''let todos = JSON.parse(localStorage.getItem('todos')) || [];
+
+function renderTodos() {
+    const todoList = document.getElementById('todoList');
+    todoList.innerHTML = '';
+    
+    todos.forEach((todo, index) => {
+        const todoItem = document.createElement('div');
+        todoItem.className = `todo-item ${todo.completed ? 'completed' : ''}`;
+        todoItem.innerHTML = `
+            <span>${todo.text}</span>
+            <div>
+                <button onclick="toggleTodo(${index})">✓</button>
+                <button onclick="deleteTodo(${index})">✕</button>
+            </div>
+        `;
+        todoList.appendChild(todoItem);
+    });
+}
+
+function addTodo() {
+    const input = document.getElementById('todoInput');
+    const text = input.value.trim();
+    
+    if (text) {
+        todos.push({ text: text, completed: false });
+        localStorage.setItem('todos', JSON.stringify(todos));
+        input.value = '';
+        renderTodos();
+    }
+}
+
+function toggleTodo(index) {
+    todos[index].completed = !todos[index].completed;
+    localStorage.setItem('todos', JSON.stringify(todos));
+    renderTodos();
+}
+
+function deleteTodo(index) {
+    todos.splice(index, 1);
+    localStorage.setItem('todos', JSON.stringify(todos));
+    renderTodos();
+}
+
+// Initial render
+renderTodos();'''
+            (project_path / "assets" / "js" / "app.js").write_text(js_content)
+            
+            files_created = [
+                str(project_path / "frontend" / "index.html"),
+                str(project_path / "assets" / "css" / "style.css"),
+                str(project_path / "assets" / "js" / "app.js")
+            ]
+            
+            return {
+                "status": "success",
+                "project_path": str(project_path),
+                "app_type": "todo_app",
+                "files_created": files_created
+            }
+            
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
+    def create_project_zip(self, project_path: str):
+        try:
+            project_dir = Path(project_path)
+            zip_path = project_dir.parent / f"{project_dir.name}.zip"
+            
+            with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+                for file_path in project_dir.rglob('*'):
+                    if file_path.is_file():
+                        zipf.write(file_path, file_path.relative_to(project_dir))
+            
+            return str(zip_path)
+        except Exception as e:
+            print(f"Error creating ZIP: {e}")
+            return None
+
+# Diagram functions
+def generate_architecture_diagram():
+    fig, ax = plt.subplots(figsize=(10, 6))
+    components = [
+        (1, 4.5, 2, 0.9, "User Input", "#4CAF50"),
+        (4, 4.5, 2, 0.9, "Idea Analyzer", "#2196F3"),
+        (7, 4.5, 2, 0.9, "Template Engine", "#FF9800"),
+        (4, 3, 2, 0.9, "Generator", "#9C27B0"),
+        (4, 1.5, 2, 0.9, "File Manager", "#607D8B")
+    ]
+    for x, y, w, h, label, color in components:
+        rect = FancyBboxPatch((x, y), w, h, boxstyle="round,pad=0.1",
+                             facecolor=color, edgecolor='black', alpha=0.9)
+        ax.add_patch(rect)
+        ax.text(x + w/2, y + h/2, label, ha='center', va='center', fontsize=9, fontweight='bold', color='white')
+    arrows = [(3, 4.9, 4, 4.9), (6, 4.9, 7, 4.9), (5, 3.9, 5, 3.1), (5, 2.4, 5, 1.9)]
+    for x1, y1, x2, y2 in arrows:
+        ax.annotate('', xy=(x2, y2), xytext=(x1, y1), arrowprops=dict(arrowstyle='->', lw=1.8, color='black'))
+    ax.set_xlim(0, 10)
+    ax.set_ylim(0.5, 6)
+    ax.set_xticks([])
+    ax.set_yticks([])
+    st.pyplot(fig)
+
+def generate_workflow_diagram():
+    fig, ax = plt.subplots(figsize=(10, 3))
+    steps = [(1, 1.5, "1. Input"), (3, 1.5, "2. Analyze"), (5, 1.5, "3. Template"), (7, 1.5, "4. Generate"), (9, 1.5, "5. Output")]
+    for x, y, label in steps:
+        circle = Circle((x, y), 0.4, facecolor="#45B7D1", edgecolor='black', alpha=0.9)
+        ax.add_patch(circle)
+        ax.text(x, y, label, ha='center', va='center', fontsize=9, fontweight='bold', color='white')
+    for i in range(len(steps)-1):
+        ax.annotate('', xy=(steps[i+1][0]-0.4, steps[i+1][1]), xytext=(steps[i][0]+0.4, steps[i][1]), arrowprops=dict(arrowstyle='->', lw=1.6, color='black'))
+    ax.set_xlim(0, 10)
+    ax.set_ylim(0, 3)
+    ax.set_xticks([])
+    ax.set_yticks([])
+    st.pyplot(fig)
+
+# Streamlit App
 st.set_page_config(
     page_title="CodeGenie Pro",
     page_icon="🚀",
@@ -124,7 +323,7 @@ def main():
         st.title("CodeGenie Pro")
         st.markdown("---")
         st.subheader("🚀 Quick Start")
-        st.markdown("1. Describe your app idea\\n2. Generate\\n3. Download and run")
+        st.markdown("1. Describe your app idea\n2. Generate\n3. Download and run")
         st.markdown("---")
         st.subheader("📊 Stats")
         st.metric("Projects Built", len(st.session_state.builder.projects))
@@ -339,755 +538,3 @@ def show_about():
 
 if __name__ == "__main__":
     main()
-''',
-    
-    "requirements.txt": '''streamlit>=1.28.0
-matplotlib>=3.7.0
-networkx>=3.0
-Jinja2>=3.1.0
-pytest>=7.0.0
-''',
-    
-    "codegenie/__init__.py": '''from .auto_builder import CodeGenieAutoBuilder
-
-__all__ = ["CodeGenieAutoBuilder"]
-''',
-    
-    "codegenie/auto_builder.py": '''import os
-import json
-import shutil
-import zipfile
-from pathlib import Path
-from typing import Dict, List, Optional
-from jinja2 import Template
-
-class CodeGenieAutoBuilder:
-    def __init__(self):
-        self.projects = []
-        self.base_path = Path("generated_apps")
-        self.base_path.mkdir(exist_ok=True)
-        
-        # Templates for different app types
-        self.templates = {
-            "todo_app": self._get_todo_template(),
-            "blog_app": self._get_blog_template(),
-            "notes_app": self._get_notes_template(),
-            "contacts_app": self._get_contacts_template(),
-            "library_app": self._get_library_template()
-        }
-
-    def build_application(self, idea: str) -> Dict:
-        """Main method to build application from idea"""
-        try:
-            # Analyze the idea to determine app type
-            app_type = self.analyze_idea(idea)
-            project_name = self.generate_project_name(idea)
-            project_path = self.base_path / project_name
-            
-            # Create project structure
-            self._create_project_structure(project_path)
-            
-            # Generate app based on type
-            if app_type == "todo_app":
-                result = self.generate_todo_app(project_name, idea)
-            elif app_type == "blog_app":
-                result = self.generate_blog_app(project_name, idea)
-            elif app_type == "notes_app":
-                result = self.generate_notes_app(project_name, idea)
-            elif app_type == "contacts_app":
-                result = self.generate_contacts_app(project_name, idea)
-            elif app_type == "library_app":
-                result = self.generate_library_app(project_name, idea)
-            else:
-                # Default to todo app
-                result = self.generate_todo_app(project_name, idea)
-            
-            self.projects.append({
-                "name": project_name,
-                "idea": idea,
-                "type": app_type,
-                "path": str(project_path)
-            })
-            
-            return result
-            
-        except Exception as e:
-            return {"status": "error", "message": str(e)}
-
-    def analyze_idea(self, idea: str) -> str:
-        """Analyze the idea to determine app type"""
-        idea_lower = idea.lower()
-        
-        if any(word in idea_lower for word in ['todo', 'task', 'checklist', 'reminder']):
-            return "todo_app"
-        elif any(word in idea_lower for word in ['blog', 'post', 'article', 'publish']):
-            return "blog_app"
-        elif any(word in idea_lower for word in ['note', 'memo', 'journal', 'diary']):
-            return "notes_app"
-        elif any(word in idea_lower for word in ['contact', 'address', 'phone', 'email']):
-            return "contacts_app"
-        elif any(word in idea_lower for word in ['book', 'library', 'read', 'collection']):
-            return "library_app"
-        else:
-            return "todo_app"  # default
-
-    def generate_project_name(self, idea: str) -> str:
-        """Generate a project name from the idea"""
-        words = idea.split()[:3]
-        name = "_".join(words).lower().replace(' ', '_')
-        # Remove special characters
-        name = ''.join(c for c in name if c.isalnum() or c == '_')
-        return f"app_{name}"
-
-    def _create_project_structure(self, project_path: Path):
-        """Create basic project structure"""
-        directories = [
-            "frontend",
-            "backend", 
-            "assets/css",
-            "assets/js",
-            "data"
-        ]
-        
-        for directory in directories:
-            (project_path / directory).mkdir(parents=True, exist_ok=True)
-
-    def generate_todo_app(self, project_name: str, idea: str) -> Dict:
-        """Generate a todo application"""
-        project_path = self.base_path / project_name
-        
-        try:
-            # Create HTML file
-            html_content = self._render_template("todo_app", {
-                "project_name": project_name,
-                "idea": idea,
-                "features": ["Add/Delete Tasks", "Mark Complete", "Categories", "Due Dates"]
-            })
-            
-            (project_path / "frontend" / "index.html").write_text(html_content)
-            
-            # Create CSS file
-            css_content = '''
-            body {
-                font-family: Arial, sans-serif;
-                max-width: 800px;
-                margin: 0 auto;
-                padding: 20px;
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                min-height: 100vh;
-            }
-            .container {
-                background: white;
-                padding: 30px;
-                border-radius: 10px;
-                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            }
-            .todo-item {
-                padding: 10px;
-                margin: 5px 0;
-                background: #f8f9fa;
-                border-radius: 5px;
-                display: flex;
-                justify-content: between;
-                align-items: center;
-            }
-            .completed {
-                text-decoration: line-through;
-                opacity: 0.6;
-            }
-            '''
-            (project_path / "assets" / "css" / "style.css").write_text(css_content)
-            
-            # Create JavaScript file
-            js_content = '''
-            let todos = JSON.parse(localStorage.getItem('todos')) || [];
-            
-            function renderTodos() {
-                const todoList = document.getElementById('todoList');
-                todoList.innerHTML = '';
-                
-                todos.forEach((todo, index) => {
-                    const todoItem = document.createElement('div');
-                    todoItem.className = `todo-item ${todo.completed ? 'completed' : ''}`;
-                    todoItem.innerHTML = `
-                        <span>${todo.text}</span>
-                        <div>
-                            <button onclick="toggleTodo(${index})">✓</button>
-                            <button onclick="deleteTodo(${index})">✕</button>
-                        </div>
-                    `;
-                    todoList.appendChild(todoItem);
-                });
-            }
-            
-            function addTodo() {
-                const input = document.getElementById('todoInput');
-                const text = input.value.trim();
-                
-                if (text) {
-                    todos.push({ text, completed: false });
-                    localStorage.setItem('todos', JSON.stringify(todos));
-                    input.value = '';
-                    renderTodos();
-                }
-            }
-            
-            function toggleTodo(index) {
-                todos[index].completed = !todos[index].completed;
-                localStorage.setItem('todos', JSON.stringify(todos));
-                renderTodos();
-            }
-            
-            function deleteTodo(index) {
-                todos.splice(index, 1);
-                localStorage.setItem('todos', JSON.stringify(todos));
-                renderTodos();
-            }
-            
-            // Initial render
-            renderTodos();
-            '''
-            (project_path / "assets" / "js" / "app.js").write_text(js_content)
-            
-            files_created = [
-                str(project_path / "frontend" / "index.html"),
-                str(project_path / "assets" / "css" / "style.css"),
-                str(project_path / "assets" / "js" / "app.js")
-            ]
-            
-            return {
-                "status": "success",
-                "project_path": str(project_path),
-                "app_type": "todo_app",
-                "files_created": files_created
-            }
-            
-        except Exception as e:
-            return {"status": "error", "message": str(e)}
-
-    def generate_blog_app(self, project_name: str, idea: str) -> Dict:
-        """Generate a blog application"""
-        project_path = self.base_path / project_name
-        
-        try:
-            html_content = self._render_template("blog_app", {
-                "project_name": project_name,
-                "idea": idea
-            })
-            
-            (project_path / "frontend" / "index.html").write_text(html_content)
-            
-            files_created = [str(project_path / "frontend" / "index.html")]
-            return {
-                "status": "success", 
-                "project_path": str(project_path),
-                "app_type": "blog_app",
-                "files_created": files_created
-            }
-        except Exception as e:
-            return {"status": "error", "message": str(e)}
-
-    def generate_notes_app(self, project_name: str, idea: str) -> Dict:
-        """Generate a notes application"""
-        project_path = self.base_path / project_name
-        
-        try:
-            html_content = self._render_template("notes_app", {
-                "project_name": project_name,
-                "idea": idea
-            })
-            
-            (project_path / "frontend" / "index.html").write_text(html_content)
-            
-            files_created = [str(project_path / "frontend" / "index.html")]
-            return {
-                "status": "success",
-                "project_path": str(project_path),
-                "app_type": "notes_app", 
-                "files_created": files_created
-            }
-        except Exception as e:
-            return {"status": "error", "message": str(e)}
-
-    def generate_contacts_app(self, project_name: str, idea: str) -> Dict:
-        """Generate a contacts application"""
-        project_path = self.base_path / project_name
-        
-        try:
-            html_content = self._render_template("contacts_app", {
-                "project_name": project_name,
-                "idea": idea
-            })
-            
-            (project_path / "frontend" / "index.html").write_text(html_content)
-            
-            files_created = [str(project_path / "frontend" / "index.html")]
-            return {
-                "status": "success",
-                "project_path": str(project_path),
-                "app_type": "contacts_app",
-                "files_created": files_created
-            }
-        except Exception as e:
-            return {"status": "error", "message": str(e)}
-
-    def generate_library_app(self, project_name: str, idea: str) -> Dict:
-        """Generate a library application"""
-        project_path = self.base_path / project_name
-        
-        try:
-            html_content = self._render_template("library_app", {
-                "project_name": project_name,
-                "idea": idea
-            })
-            
-            (project_path / "frontend" / "index.html").write_text(html_content)
-            
-            files_created = [str(project_path / "frontend" / "index.html")]
-            return {
-                "status": "success",
-                "project_path": str(project_path),
-                "app_type": "library_app",
-                "files_created": files_created
-            }
-        except Exception as e:
-            return {"status": "error", "message": str(e)}
-
-    def create_project_zip(self, project_path: str) -> Optional[str]:
-        """Create a ZIP file of the generated project"""
-        try:
-            project_dir = Path(project_path)
-            zip_path = project_dir.parent / f"{project_dir.name}.zip"
-            
-            with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
-                for file_path in project_dir.rglob('*'):
-                    if file_path.is_file():
-                        # Write files relative to the project dir
-                        zipf.write(file_path, file_path.relative_to(project_dir))
-            
-            return str(zip_path)
-        except Exception as e:
-            print(f"Error creating ZIP: {e}")
-            return None
-
-    def _render_template(self, template_type: str, context: Dict) -> str:
-        """Render template with context"""
-        template_str = self.templates.get(template_type, self.templates["todo_app"])
-        template = Template(template_str)
-        return template.render(**context)
-
-    def _get_todo_template(self) -> str:
-        return '''
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ project_name }} - Todo App</title>
-    <link rel="stylesheet" href="../assets/css/style.css">
-</head>
-<body>
-    <div class="container">
-        <h1>🚀 {{ project_name }}</h1>
-        <p><em>Generated from: "{{ idea }}"</em></p>
-        
-        <div class="todo-input">
-            <input type="text" id="todoInput" placeholder="Enter a new task...">
-            <button onclick="addTodo()">Add Task</button>
-        </div>
-        
-        <div id="todoList"></div>
-    </div>
-    
-    <script src="../assets/js/app.js"></script>
-</body>
-</html>
-        '''
-
-    def _get_blog_template(self) -> str:
-        return '''
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ project_name }} - Blog</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-        }
-        .container {
-            background: white;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-        .post {
-            border-bottom: 1px solid #eee;
-            padding: 20px 0;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>📝 {{ project_name }}</h1>
-        <p><em>Generated from: "{{ idea }}"</em></p>
-        
-        <div class="post">
-            <h2>Welcome to Your New Blog!</h2>
-            <p>This blog was automatically generated based on your idea. Start writing your first post!</p>
-        </div>
-    </div>
-</body>
-</html>
-        '''
-
-    def _get_notes_template(self) -> str:
-        return '''
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ project_name }} - Notes</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-        }
-        .container {
-            background: white;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-        textarea {
-            width: 100%;
-            height: 200px;
-            margin: 10px 0;
-            padding: 10px;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>📓 {{ project_name }}</h1>
-        <p><em>Generated from: "{{ idea }}"</em></p>
-        
-        <textarea placeholder="Start taking notes..."></textarea>
-        <button onclick="saveNote()">Save Note</button>
-    </div>
-    
-    <script>
-        function saveNote() {
-            alert('Note saved! (In a real app, this would save to storage)');
-        }
-    </script>
-</body>
-</html>
-        '''
-
-    def _get_contacts_template(self) -> str:
-        return '''
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ project_name }} - Contacts</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-        }
-        .container {
-            background: white;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-        .contact {
-            border: 1px solid #ddd;
-            padding: 15px;
-            margin: 10px 0;
-            border-radius: 5px;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>📇 {{ project_name }}</h1>
-        <p><em>Generated from: "{{ idea }}"</em></p>
-        
-        <div class="contact">
-            <h3>Sample Contact</h3>
-            <p>Email: example@email.com</p>
-            <p>Phone: (555) 123-4567</p>
-        </div>
-    </div>
-</body>
-</html>
-        '''
-
-    def _get_library_template(self) -> str:
-        return '''
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ project_name }} - Library</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-        }
-        .container {
-            background: white;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-        .book {
-            border: 1px solid #ddd;
-            padding: 15px;
-            margin: 10px 0;
-            border-radius: 5px;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>📚 {{ project_name }}</h1>
-        <p><em>Generated from: "{{ idea }}"</em></p>
-        
-        <div class="book">
-            <h3>Sample Book Title</h3>
-            <p>Author: Sample Author</p>
-            <p>Rating: ★★★★☆</p>
-        </div>
-    </div>
-</body>
-</html>
-        '''
-''',
-    
-    "codegenie/utils/diagram_generator.py": '''import streamlit as st
-import matplotlib.pyplot as plt
-from matplotlib.patches import FancyBboxPatch
-
-def generate_architecture_diagram():
-    fig, ax = plt.subplots(figsize=(10, 6))
-    components = [
-        (1, 4.5, 2, 0.9, "User Input", "#4CAF50"),
-        (4, 4.5, 2, 0.9, "Idea Analyzer", "#2196F3"),
-        (7, 4.5, 2, 0.9, "Template Engine", "#FF9800"),
-        (4, 3, 2, 0.9, "Generator", "#9C27B0"),
-        (4, 1.5, 2, 0.9, "File Manager", "#607D8B")
-    ]
-    for x, y, w, h, label, color in components:
-        rect = FancyBboxPatch((x, y), w, h, boxstyle="round,pad=0.1",
-                             facecolor=color, edgecolor='black', alpha=0.9)
-        ax.add_patch(rect)
-        ax.text(x + w/2, y + h/2, label, ha='center', va='center', fontsize=9, fontweight='bold', color='white')
-    arrows = [(3, 4.9, 4, 4.9), (6, 4.9, 7, 4.9), (5, 3.9, 5, 3.1), (5, 2.4, 5, 1.9)]
-    for x1, y1, x2, y2 in arrows:
-        ax.annotate('', xy=(x2, y2), xytext=(x1, y1), arrowprops=dict(arrowstyle='->', lw=1.8, color='black'))
-    ax.set_xlim(0, 10)
-    ax.set_ylim(0.5, 6)
-    ax.set_xticks([])
-    ax.set_yticks([])
-    st.pyplot(fig)
-
-def generate_workflow_diagram():
-    fig, ax = plt.subplots(figsize=(10, 3))
-    steps = [(1, 1.5, "1. Input"), (3, 1.5, "2. Analyze"), (5, 1.5, "3. Template"), (7, 1.5, "4. Generate"), (9, 1.5, "5. Output")]
-    for x, y, label in steps:
-        circle = plt.Circle((x, y), 0.4, facecolor="#45B7D1", edgecolor='black', alpha=0.9)
-        ax.add_patch(circle)
-        ax.text(x, y, label, ha='center', va='center', fontsize=9, fontweight='bold', color='white')
-    for i in range(len(steps)-1):
-        ax.annotate('', xy=(steps[i+1][0]-0.4, steps[i+1][1]), xytext=(steps[i][0]+0.4, steps[i][1]), arrowprops=dict(arrowstyle='->', lw=1.6, color='black'))
-    ax.set_xlim(0, 10)
-    ax.set_ylim(0, 3)
-    ax.set_xticks([])
-    ax.set_yticks([])
-    st.pyplot(fig)
-''',
-    
-    "tests/test_auto_builder.py": '''import os
-import shutil
-from codegenie.auto_builder import CodeGenieAutoBuilder
-
-def test_generate_todo_app(tmp_path):
-    builder = CodeGenieAutoBuilder()
-    project_name = f"test_todo_{int(os.time() if hasattr(os, 'time') else 1)}"
-    res = builder.generate_todo_app(project_name, "a todo app for testing")
-    assert res["status"] == "success"
-    project_path = res["project_path"]
-    assert os.path.isdir(project_path)
-    assert os.path.isfile(os.path.join(project_path, "frontend", "index.html"))
-    # Clean up
-    shutil.rmtree(project_path, ignore_errors=True)
-''',
-    
-    ".github/workflows/ci.yml": '''name: CI
-
-on:
-  push:
-    branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: [3.9, 3.10, 3.11]
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: ${{ matrix.python-version }}
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install -e .
-
-      - name: Run tests
-        run: pytest -q
-
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: 3.11
-      - name: Install dev tools
-        run: pip install black flake8
-      - name: Run linters
-        run: |
-          black --check .
-          flake8
-''',
-    
-    "Dockerfile": '''FROM python:3.11-slim
-
-WORKDIR /app
-COPY . /app
-
-RUN pip install --upgrade pip \\
-    && pip install -r requirements.txt
-
-EXPOSE 8501
-
-CMD ["streamlit", "run", "streamlit_app.py", "--server.port=8501", "--server.address=0.0.0.0"]
-''',
-    
-    ".gitignore": '''# Byte-compiled / caches
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-
-# Virtualenv
-venv/
-.env
-.venv/
-
-# OS
-.DS_Store
-
-# Pytest cache
-.pytest_cache/
-
-# Streamlit
-.streamlit/
-
-# Generated projects & zips
-generated_apps/*.zip
-generated_apps/**/__pycache__/
-
-# IDE
-.vscode/
-.idea/
-
-# Packaging
-dist/
-build/
-''',
-    
-    "LICENSE": '''MIT License
-
-Copyright (c) 2025 CodeGenie
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-''',
-    
-    "README.md": '''# 🚀 CodeGenie Pro
-
-AI-powered app generator that transforms your ideas into working web applications instantly!
-
-## ✨ Features
-
-- **🤖 AI-Powered Generation**: Describe your app idea in plain English
-- **🚀 Instant Results**: Get fully functional web apps in seconds
-- **📱 Multiple App Types**: Todo apps, blogs, notes, contacts, libraries, and more
-- **🎨 Beautiful UI**: Professionally designed interfaces with gradients and animations
-- **📦 Ready to Deploy**: Download as ZIP and run immediately
-
-## 🎯 Quick Start
-
-### Option 1: Run Locally
-
-```bash
-# Clone the repository
-git clone https://github.com/Leonydis138/Codegenie.git
-cd Codegenie
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Run the application
-streamlit run streamlit_app.py
