@@ -885,12 +885,12 @@ def main():
     st.markdown("""
     <style>
     .main-header {
-        font-size: 2rem;
+        font-size: 3em;
         background: linear-gradient(135deg, #00ff9d 0%, #00b8ff 50%, #ff00c8 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         text-align: center;
-        margin-bottom: 2rem;
+        margin-bottom: 2em;
         font-weight: 800;
     }
     .ai-feature-card {
