@@ -885,14 +885,17 @@ def main():
     st.markdown("""
     <style>
     .main-header {
-        font-size: 3em;
+        font-size: 3rem;
         background: linear-gradient(135deg, #00ff9d 0%, #00b8ff 50%, #ff00c8 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         text-align: center;
-        margin-bottom: 2em;
+        margin-bottom: 2rem;
         font-weight: 800;
     }
+    </style>
+""", unsafe_allow_html=True)
+    
     .ai-feature-card {
         background: linear-gradient(135deg, rgba(0, 255, 157, 0.1) 0%, rgba(0, 184, 255, 0.1) 100%);
         border: 1px solid rgba(0, 255, 157, 0.3);
