@@ -9,7 +9,6 @@ from jinja2 import Template
 import matplotlib.pyplot as plt
 import plotly.express as px
 import plotly.graph_objects as go
-from matplotlib.patches import FancyBboxPatch, Circle
 from datetime import datetime, timedelta
 import pandas as pd
 import numpy as np
@@ -179,14 +178,7 @@ class AICodeGenie:
         project_path = self.base_path / project_name
         
         try:
-            if app_type == "todo_app":
-                result = self.generate_ai_todo_app(project_name, idea, colors, features, complexity)
-            elif app_type == "calculator_app":
-                result = self.generate_ai_calculator_app(project_name, idea, colors, features, complexity)
-            elif app_type == "expense_tracker":
-                result = self.generate_ai_expense_tracker(project_name, idea, colors, features, complexity)
-            else:
-                result = self.generate_ai_todo_app(project_name, idea, colors, features, complexity)
+            result = self.generate_ai_expense_tracker(project_name, idea, colors, features, complexity)
             
             self._create_ai_readme(project_path, project_name, idea, app_type, features, colors)
             self._create_package_json(project_path, project_name, app_type)
@@ -210,16 +202,8 @@ class AICodeGenie:
         project_path = self.base_path / project_name
         
         try:
-            html_content = self._render_ai_template("expense_tracker", {
-                "project_name": project_name,
-                "idea": idea,
-                "colors": colors,
-                "features": features,
-                "has_charts": "Charts" in features,
-                "has_budgets": "Budget Tracking" in features,
-                "has_categories": "Categories" in features
-            })
-            
+            # Create HTML content using string concatenation to avoid template issues
+            html_content = self._create_expense_tracker_html(project_name, idea, features)
             (project_path / "frontend" / "index.html").write_text(html_content)
             
             css_content = self._generate_expense_tracker_css(colors, features)
@@ -245,6 +229,105 @@ class AICodeGenie:
             
         except Exception as e:
             return {"status": "error", "message": str(e)}
+
+    def _create_expense_tracker_html(self, project_name: str, idea: str, features: list):
+        """Create HTML content using simple string concatenation"""
+        has_charts = "Charts" in features
+        
+        html_parts = [
+            '<!DOCTYPE html>',
+            '<html lang="en">',
+            '<head>',
+            '    <meta charset="UTF-8">',
+            '    <meta name="viewport" content="width=device-width, initial-scale=1.0">',
+            f'    <title>{project_name} - AI Expense Tracker</title>',
+            '    <link rel="stylesheet" href="assets/css/style.css">',
+            '</head>',
+            '<body>',
+            '    <div class="app-container">',
+            '        <div class="app-header">',
+            f'            <h1>💰 {project_name}</h1>',
+            f'            <p>AI-Powered Expense Tracking • Generated from: "{idea}"</p>',
+            '        </div>',
+            '        <div class="dashboard">',
+            '            <div class="stat-card">',
+            '                <div class="stat-number" id="totalBalance">$0.00</div>',
+            '                <div>Total Balance</div>',
+            '            </div>',
+            '            <div class="stat-card">',
+            '                <div class="stat-number" id="totalIncome">$0.00</div>',
+            '                <div>Total Income</div>',
+            '            </div>',
+            '            <div class="stat-card">',
+            '                <div class="stat-number" id="totalExpenses">$0.00</div>',
+            '                <div>Total Expenses</div>',
+            '            </div>',
+            '            <div class="stat-card">',
+            '                <div class="stat-number" id="transactionCount">0</div>',
+            '                <div>Transactions</div>',
+            '            </div>',
+            '        </div>'
+        ]
+        
+        if has_charts:
+            html_parts.extend([
+                '        <div class="chart-container">',
+                '            <h3>📊 Spending by Category</h3>',
+                '            <div class="chart" id="spendingChart"></div>',
+                '        </div>'
+            ])
+        
+        html_parts.extend([
+            '        <div class="expense-form">',
+            '            <h3>➕ Add New Transaction</h3>',
+            '            <form id="expenseForm">',
+            '                <div class="form-grid">',
+            '                    <div class="form-group">',
+            '                        <label for="description">Description</label>',
+            '                        <input type="text" id="description" required placeholder="What was this for?">',
+            '                    </div>',
+            '                    <div class="form-group">',
+            '                        <label for="amount">Amount ($)</label>',
+            '                        <input type="number" id="amount" step="0.01" required placeholder="0.00">',
+            '                    </div>',
+            '                    <div class="form-group">',
+            '                        <label for="type">Type</label>',
+            '                        <select id="type" required>',
+            '                            <option value="expense">Expense</option>',
+            '                            <option value="income">Income</option>',
+            '                        </select>',
+            '                    </div>',
+            '                    <div class="form-group">',
+            '                        <label for="category">Category</label>',
+            '                        <select id="category" required>',
+            '                            <option value="Food">Food</option>',
+            '                            <option value="Transportation">Transportation</option>',
+            '                            <option value="Entertainment">Entertainment</option>',
+            '                            <option value="Utilities">Utilities</option>',
+            '                            <option value="Shopping">Shopping</option>',
+            '                            <option value="Healthcare">Healthcare</option>',
+            '                            <option value="Other">Other</option>',
+            '                        </select>',
+            '                    </div>',
+            '                    <div class="form-group">',
+            '                        <label for="date">Date</label>',
+            '                        <input type="date" id="date" required>',
+            '                    </div>',
+            '                </div>',
+            '                <button type="submit" class="btn">Add Transaction</button>',
+            '            </form>',
+            '        </div>',
+            '        <div class="expense-list">',
+            '            <h3 style="padding: 20px; margin: 0; border-bottom: 1px solid #e2e8f0;">📋 Recent Transactions</h3>',
+            '            <div id="expenseList"></div>',
+            '        </div>',
+            '    </div>',
+            '    <script src="assets/js/app.js"></script>',
+            '</body>',
+            '</html>'
+        ])
+        
+        return '\n'.join(html_parts)
 
     def _generate_expense_tracker_css(self, colors: dict, features: list):
         chart_css = ""
@@ -609,121 +692,27 @@ class AICodeGenie:
             json.dumps(sample_expenses, indent=2)
         )
 
-    def _render_ai_template(self, template_type: str, context: dict):
-        templates = {
-            "expense_tracker": '''
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ project_name }} - AI Expense Tracker</title>
-    <link rel="stylesheet" href="assets/css/style.css">
-</head>
-<body>
-    <div class="app-container">
-        <div class="app-header">
-            <h1>💰 {{ project_name }}</h1>
-            <p>AI-Powered Expense Tracking • Generated from: "{{ idea }}"</p>
-        </div>
-        
-        <div class="dashboard">
-            <div class="stat-card">
-                <div class="stat-number" id="totalBalance">$0.00</div>
-                <div>Total Balance</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-number" id="totalIncome">$0.00</div>
-                <div>Total Income</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-number" id="totalExpenses">$0.00</div>
-                <div>Total Expenses</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-number" id="transactionCount">0</div>
-                <div>Transactions</div>
-            </div>
-        </div>
-        
-        {% if has_charts %}
-        <div class="chart-container">
-            <h3>📊 Spending by Category</h3>
-            <div class="chart" id="spendingChart"></div>
-        </div>
-        {% endif %}
-        
-        <div class="expense-form">
-            <h3>➕ Add New Transaction</h3>
-            <form id="expenseForm">
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label for="description">Description</label>
-                        <input type="text" id="description" required placeholder="What was this for?">
-                    </div>
-                    <div class="form-group">
-                        <label for="amount">Amount ($)</label>
-                        <input type="number" id="amount" step="0.01" required placeholder="0.00">
-                    </div>
-                    <div class="form-group">
-                        <label for="type">Type</label>
-                        <select id="type" required>
-                            <option value="expense">Expense</option>
-                            <option value="income">Income</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="category">Category</label>
-                        <select id="category" required>
-                            <option value="Food">Food</option>
-                            <option value="Transportation">Transportation</option>
-                            <option value="Entertainment">Entertainment</option>
-                            <option value="Utilities">Utilities</option>
-                            <option value="Shopping">Shopping</option>
-                            <option value="Healthcare">Healthcare</option>
-                            <option value="Other">Other</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="date">Date</label>
-                        <input type="date" id="date" required>
-                    </div>
-                </div>
-                <button type="submit" class="btn">Add Transaction</button>
-            </form>
-        </div>
-        
-        <div class="expense-list">
-            <h3 style="padding: 20px; margin: 0; border-bottom: 1px solid #e2e8f0;">📋 Recent Transactions</h3>
-            <div id="expenseList"></div>
-        </div>
-    </div>
-    
-    <script src="assets/js/app.js"></script>
-</body>
-</html>'''
-        }
-        
-        template = Template(templates.get(template_type, templates["expense_tracker"]))
-        return template.render(**context)
-
     def _create_ai_readme(self, project_path: Path, project_name: str, idea: str,
                          app_type: str, features: list, colors: dict):
-        """Create AI-enhanced README using Jinja2 to avoid f-string parsing issues."""
+        """Create README using simple string concatenation to avoid template issues"""
         created_at = datetime.now().strftime("%Y-%m-%d at %H:%M:%S")
         app_type_title = app_type.replace('_', ' ').title()
-
-        readme_template = Template("""# 🚀 {{ project_name }}
+        
+        # Build features list
+        features_list = "\n".join([f"- {feature}" for feature in features])
+        
+        # Create README content using string concatenation
+        readme_content = f"""# 🚀 {project_name}
 
 ## 🤖 AI-Generated Application
 
-> **Inspired by:** "{{ idea }}"
+> **Inspired by:** "{idea}"
 
 ---
 
 ## 🎯 Project Overview
 
-This is an **AI-powered {{ app_type_title }}** generated by **CodeGenie Pro v3.0** with advanced machine learning analysis.
+This is an **AI-powered {app_type_title}** generated by **CodeGenie Pro v3.0** with advanced machine learning analysis.
 
 ### ✨ AI Features
 - **Smart Idea Analysis**: Advanced NLP understanding
@@ -741,15 +730,13 @@ This is an **AI-powered {{ app_type_title }}** generated by **CodeGenie Pro v3.0
 ## 🎨 Design System
 
 **Color Palette:**
-- Primary: `{{ colors.primary }}`
-- Secondary: `{{ colors.secondary }}`
-- Accent: `{{ colors.accent }}`
+- Primary: `{colors['primary']}`
+- Secondary: `{colors['secondary']}`
+- Accent: `{colors['accent']}`
 
 ## 🔧 Features
 
-{% for feature in features %}
-- {{ feature }}
-{% endfor %}
+{features_list}
 
 ## 🚀 Quick Start
 
