@@ -4,8 +4,6 @@ import time
 import zipfile
 import json
 import random
-import base64
-import uuid
 from pathlib import Path
 from jinja2 import Template
 import matplotlib.pyplot as plt
@@ -16,25 +14,20 @@ from datetime import datetime, timedelta
 import pandas as pd
 import numpy as np
 
-# Expanded CodeGenie class with AI-powered features
 class AICodeGenie:
     def __init__(self):
         self.projects = []
         self.base_path = Path("ai_generated_apps")
         self.base_path.mkdir(exist_ok=True)
         
-        # Enhanced color schemes with AI-generated palettes
         self.color_schemes = {
             "Neon Cyber": {"primary": "#00ff9d", "secondary": "#00b8ff", "accent": "#ff00c8"},
             "Solar Flare": {"primary": "#ff6b35", "secondary": "#f7931e", "accent": "#ffd166"},
             "Ocean Depth": {"primary": "#006994", "secondary": "#00a8e8", "accent": "#90e0ef"},
             "Forest Magic": {"primary": "#2d5a27", "secondary": "#4c956c", "accent": "#fefee3"},
-            "Purple Haze": {"primary": "#7209b7", "secondary": "#560bad", "accent": "#b5179e"},
-            "Sunset Glow": {"primary": "#ff5400", "secondary": "#ff6b6b", "accent": "#feca57"},
-            "Ice Queen": {"primary": "#a8dadc", "secondary": "#457b9d", "accent": "#1d3557"}
+            "Purple Haze": {"primary": "#7209b7", "secondary": "#560bad", "accent": "#b5179e"}
         }
         
-        # AI training data for better idea analysis
         self.ai_patterns = {
             "todo_app": {
                 "keywords": ['todo', 'task', 'checklist', 'reminder', 'to-do', 'to do', 'get things done', 'productivity'],
@@ -52,36 +45,15 @@ class AICodeGenie:
                 "keywords": ['calculator', 'calculate', 'math', 'arithmetic', 'numbers', 'scientific', 'finance'],
                 "features": ['scientific', 'history', 'memory', 'conversions', 'graphs']
             },
-            "weather_app": {
-                "keywords": ['weather', 'forecast', 'temperature', 'climate', 'meteorology', 'temperature'],
-                "features": ['forecast', 'locations', 'maps', 'alerts', 'historical']
-            },
             "expense_tracker": {
                 "keywords": ['expense', 'budget', 'finance', 'money', 'spending', 'tracker', 'financial'],
                 "features": ['categories', 'reports', 'budgets', 'export', 'charts']
-            },
-            "fitness_tracker": {
-                "keywords": ['fitness', 'workout', 'exercise', 'health', 'gym', 'training', 'calories'],
-                "features": ['workouts', 'progress', 'stats', 'goals', 'nutrition']
-            },
-            "recipe_book": {
-                "keywords": ['recipe', 'cooking', 'food', 'meal', 'kitchen', 'cookbook', 'ingredients'],
-                "features": ['categories', 'search', 'ratings', 'shopping list', 'nutrition']
-            },
-            "book_library": {
-                "keywords": ['book', 'library', 'read', 'collection', 'catalog', 'reading', 'novel'],
-                "features": ['reviews', 'ratings', 'progress', 'wishlist', 'recommendations']
-            },
-            "music_player": {
-                "keywords": ['music', 'player', 'playlist', 'audio', 'songs', 'tunes', 'melody'],
-                "features": ['playlists', 'equalizer', 'lyrics', 'radio', 'favorites']
             }
         }
 
     def build_ai_application(self, idea: str, app_type: str = "auto", features: list = None, 
                            color_scheme: str = "Neon Cyber", complexity: str = "advanced"):
         try:
-            # AI-powered idea analysis
             ai_analysis = self.analyze_idea_with_ai(idea)
             detected_type = ai_analysis["recommended_type"]
             confidence = ai_analysis["confidence"]
@@ -89,21 +61,17 @@ class AICodeGenie:
             
             if app_type != "auto" and app_type != "Auto-detect":
                 detected_type = app_type.lower().replace(" ", "_")
-                confidence = 1.0  # User override gets full confidence
+                confidence = 1.0
             
-            # Merge user features with AI suggestions
             all_features = list(set((features or []) + suggested_features))
             
             project_name = self.generate_ai_project_name(idea, detected_type)
             project_path = self.base_path / project_name
             
-            # Create enhanced project structure
             self._create_ai_project_structure(project_path)
             
-            # Get color scheme
             colors = self.color_schemes.get(color_scheme, self.color_schemes["Neon Cyber"])
             
-            # Generate app based on AI analysis
             generation_result = self.generate_ai_app(
                 project_name, idea, detected_type, colors, all_features, complexity
             )
@@ -111,9 +79,8 @@ class AICodeGenie:
             if generation_result["status"] != "success":
                 return generation_result
             
-            # Create AI-enhanced project info
             project_info = {
-                "id": str(uuid.uuid4()),
+                "id": str(random.randint(1000, 9999)),
                 "name": project_name,
                 "idea": idea,
                 "type": detected_type,
@@ -128,7 +95,6 @@ class AICodeGenie:
             }
             
             (project_path / "ai_project_info.json").write_text(json.dumps(project_info, indent=2))
-            
             self.projects.append(project_info)
             
             return {
@@ -144,22 +110,18 @@ class AICodeGenie:
             return {"status": "error", "message": str(e), "error_type": type(e).__name__}
 
     def analyze_idea_with_ai(self, idea: str):
-        """AI-powered idea analysis with confidence scoring"""
         idea_lower = idea.lower()
         
-        # Calculate scores for each app type
         scores = {}
         for app_type, patterns in self.ai_patterns.items():
             score = 0
             matched_keywords = []
             
-            # Keyword matching with weights
             for keyword in patterns["keywords"]:
                 if keyword in idea_lower:
                     score += 2
                     matched_keywords.append(keyword)
             
-            # Feature suggestion based on context
             suggested_features = []
             for feature in patterns["features"]:
                 if any(word in idea_lower for word in feature.split()):
@@ -168,14 +130,12 @@ class AICodeGenie:
             scores[app_type] = {
                 "score": score,
                 "matched_keywords": matched_keywords,
-                "suggested_features": suggested_features[:3]  # Top 3 features
+                "suggested_features": suggested_features[:3]
             }
         
-        # Find best match
         best_type = max(scores.items(), key=lambda x: x[1]["score"])
         max_score = best_type[1]["score"]
         
-        # Calculate confidence (0.0 to 1.0)
         total_possible = len(self.ai_patterns[best_type[0]]["keywords"]) * 2
         confidence = min(max_score / total_possible, 1.0) if total_possible > 0 else 0.0
         
@@ -188,9 +148,8 @@ class AICodeGenie:
         }
 
     def generate_ai_project_name(self, idea: str, app_type: str):
-        """Generate creative, AI-style project names"""
-        prefixes = ["Quantum", "Neural", "Smart", "AI", "Cyber", "Hyper", "Ultra", "Mega"]
-        suffixes = ["Pro", "Max", "Plus", "X", "360", "Labs", "Studio", "Hub"]
+        prefixes = ["Quantum", "Neural", "Smart", "AI", "Cyber", "Hyper"]
+        suffixes = ["Pro", "Max", "Plus", "X", "Labs", "Studio"]
         
         words = [word for word in idea.split()[:3] if len(word) > 2]
         base_name = "_".join(words).lower() if words else "app"
@@ -202,18 +161,13 @@ class AICodeGenie:
         return f"{prefix}_{base_name}_{suffix}_{int(time.time())}"
 
     def _create_ai_project_structure(self, project_path: Path):
-        """Create comprehensive project structure"""
         directories = [
             "frontend",
-            "backend",
             "assets/css",
             "assets/js", 
             "assets/images",
-            "assets/fonts",
             "data",
             "docs",
-            "tests",
-            "deployment",
             "config"
         ]
         
@@ -222,7 +176,6 @@ class AICodeGenie:
 
     def generate_ai_app(self, project_name: str, idea: str, app_type: str, colors: dict, 
                        features: list, complexity: str):
-        """AI-powered app generation with multiple app types"""
         project_path = self.base_path / project_name
         
         try:
@@ -232,19 +185,9 @@ class AICodeGenie:
                 result = self.generate_ai_calculator_app(project_name, idea, colors, features, complexity)
             elif app_type == "expense_tracker":
                 result = self.generate_ai_expense_tracker(project_name, idea, colors, features, complexity)
-            elif app_type == "fitness_tracker":
-                result = self.generate_ai_fitness_tracker(project_name, idea, colors, features, complexity)
-            elif app_type == "recipe_book":
-                result = self.generate_ai_recipe_book(project_name, idea, colors, features, complexity)
-            elif app_type == "weather_app":
-                result = self.generate_ai_weather_app(project_name, idea, colors, features, complexity)
-            elif app_type == "music_player":
-                result = self.generate_ai_music_player(project_name, idea, colors, features, complexity)
             else:
-                # Default to enhanced todo app
                 result = self.generate_ai_todo_app(project_name, idea, colors, features, complexity)
             
-            # Always create these files
             self._create_ai_readme(project_path, project_name, idea, app_type, features, colors)
             self._create_package_json(project_path, project_name, app_type)
             self._create_ai_config(project_path, colors, features)
@@ -264,11 +207,9 @@ class AICodeGenie:
 
     def generate_ai_expense_tracker(self, project_name: str, idea: str, colors: dict, 
                                   features: list, complexity: str):
-        """Generate AI-powered expense tracker"""
         project_path = self.base_path / project_name
         
         try:
-            # Enhanced HTML with charts and analytics
             html_content = self._render_ai_template("expense_tracker", {
                 "project_name": project_name,
                 "idea": idea,
@@ -281,15 +222,12 @@ class AICodeGenie:
             
             (project_path / "frontend" / "index.html").write_text(html_content)
             
-            # Advanced CSS with financial app styling
             css_content = self._generate_expense_tracker_css(colors, features)
             (project_path / "assets" / "css" / "style.css").write_text(css_content)
             
-            # Sophisticated JavaScript with data visualization
             js_content = self._generate_expense_tracker_js(features, complexity)
             (project_path / "assets" / "js" / "app.js").write_text(js_content)
             
-            # Sample data for demo
             if "Sample Data" in features:
                 self._create_sample_expense_data(project_path)
             
@@ -308,92 +246,7 @@ class AICodeGenie:
         except Exception as e:
             return {"status": "error", "message": str(e)}
 
-    def generate_ai_fitness_tracker(self, project_name: str, idea: str, colors: dict, 
-                                  features: list, complexity: str):
-        """Generate AI-powered fitness tracker"""
-        project_path = self.base_path / project_name
-        
-        try:
-            html_content = self._render_ai_template("fitness_tracker", {
-                "project_name": project_name,
-                "idea": idea,
-                "colors": colors,
-                "features": features,
-                "has_workouts": "Workout Plans" in features,
-                "has_progress": "Progress Tracking" in features,
-                "has_nutrition": "Nutrition Tracking" in features
-            })
-            
-            (project_path / "frontend" / "index.html").write_text(html_content)
-            
-            css_content = self._generate_fitness_tracker_css(colors, features)
-            (project_path / "assets" / "css" / "style.css").write_text(css_content)
-            
-            js_content = self._generate_fitness_tracker_js(features, complexity)
-            (project_path / "assets" / "js" / "app.js").write_text(js_content)
-            
-            if "Sample Data" in features:
-                self._create_sample_fitness_data(project_path)
-            
-            files_created = [
-                str(project_path / "frontend" / "index.html"),
-                str(project_path / "assets" / "css" / "style.css"),
-                str(project_path / "assets" / "js" / "app.js")
-            ]
-            
-            return {
-                "status": "success", 
-                "files_created": files_created,
-                "app_type": "fitness_tracker"
-            }
-            
-        except Exception as e:
-            return {"status": "error", "message": str(e)}
-
-    def generate_ai_recipe_book(self, project_name: str, idea: str, colors: dict, 
-                              features: list, complexity: str):
-        """Generate AI-powered recipe book"""
-        project_path = self.base_path / project_name
-        
-        try:
-            html_content = self._render_ai_template("recipe_book", {
-                "project_name": project_name,
-                "idea": idea,
-                "colors": colors,
-                "features": features,
-                "has_search": "Search" in features,
-                "has_categories": "Categories" in features,
-                "has_ratings": "Ratings" in features
-            })
-            
-            (project_path / "frontend" / "index.html").write_text(html_content)
-            
-            css_content = self._generate_recipe_book_css(colors, features)
-            (project_path / "assets" / "css" / "style.css").write_text(css_content)
-            
-            js_content = self._generate_recipe_book_js(features, complexity)
-            (project_path / "assets" / "js" / "app.js").write_text(js_content)
-            
-            if "Sample Data" in features:
-                self._create_sample_recipe_data(project_path)
-            
-            files_created = [
-                str(project_path / "frontend" / "index.html"),
-                str(project_path / "assets" / "css" / "style.css"),
-                str(project_path / "assets" / "js" / "app.js")
-            ]
-            
-            return {
-                "status": "success",
-                "files_created": files_created,
-                "app_type": "recipe_book"
-            }
-            
-        except Exception as e:
-            return {"status": "error", "message": str(e)}
-
     def _generate_expense_tracker_css(self, colors: dict, features: list):
-        """Generate advanced CSS for expense tracker"""
         chart_css = ""
         if "Charts" in features:
             chart_css = """
@@ -416,9 +269,6 @@ class AICodeGenie:
                 margin: 2px;
                 border-radius: 4px;
                 transition: all 0.3s ease;
-            }
-            .chart-bar:hover {
-                transform: scale(1.05);
             }"""
         
         return f'''
@@ -426,12 +276,6 @@ class AICodeGenie:
             --primary: {colors['primary']};
             --secondary: {colors['secondary']};
             --accent: {colors['accent']};
-        }}
-        
-        * {{
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
         }}
         
         body {{
@@ -463,11 +307,6 @@ class AICodeGenie:
             font-size: 2.5em;
             margin-bottom: 10px;
             font-weight: 800;
-        }}
-        
-        .app-header p {{
-            opacity: 0.9;
-            font-size: 1.1em;
         }}
         
         .dashboard {{
@@ -569,15 +408,10 @@ class AICodeGenie:
             padding: 20px;
             border-bottom: 1px solid #e2e8f0;
             align-items: center;
-            transition: background-color 0.3s ease;
         }}
         
         .expense-item:hover {{
             background: #f8fafc;
-        }}
-        
-        .expense-item:last-child {{
-            border-bottom: none;
         }}
         
         .expense-amount {{
@@ -603,33 +437,14 @@ class AICodeGenie:
         }}
         
         {chart_css}
-        
-        @media (max-width: 768px) {{
-            .dashboard {{
-                grid-template-columns: 1fr;
-            }}
-            
-            .expense-item {{
-                grid-template-columns: 1fr;
-                text-align: center;
-                gap: 10px;
-            }}
-            
-            .form-grid {{
-                grid-template-columns: 1fr;
-            }}
-        }}
         '''
 
     def _generate_expense_tracker_js(self, features: list, complexity: str):
-        """Generate advanced JavaScript for expense tracker"""
         chart_js = ""
         if "Charts" in features:
             chart_js = '''
             function renderCharts() {
                 const expenses = JSON.parse(localStorage.getItem('expenses')) || [];
-                
-                // Category spending chart
                 const categoryData = {};
                 expenses.forEach(expense => {
                     if (expense.type === 'expense') {
@@ -640,8 +455,7 @@ class AICodeGenie:
                 const chartContainer = document.getElementById('spendingChart');
                 if (chartContainer) {
                     chartContainer.innerHTML = '';
-                    
-                    Object.entries(categoryData).forEach(([category, amount], index) => {
+                    Object.entries(categoryData).forEach(([category, amount]) => {
                         const bar = document.createElement('div');
                         bar.className = 'chart-bar';
                         bar.style.height = `${Math.min(amount / 10, 100)}%`;
@@ -651,14 +465,6 @@ class AICodeGenie:
                         chartContainer.appendChild(bar);
                     });
                 }
-                
-                // Monthly trend
-                const monthlyData = {};
-                expenses.forEach(expense => {
-                    const date = new Date(expense.date);
-                    const monthKey = `${date.getFullYear()}-${date.getMonth() + 1}`;
-                    monthlyData[monthKey] = (monthlyData[monthKey] || 0) + parseFloat(expense.amount);
-                });
             }'''
         
         return f'''
@@ -680,12 +486,6 @@ class AICodeGenie:
                 document.getElementById('expenseForm').addEventListener('submit', (e) => {{
                     e.preventDefault();
                     this.addExpense();
-                }});
-                
-                document.getElementById('clearAll').addEventListener('click', () => {{
-                    if (confirm('Are you sure you want to clear all expenses?')) {{
-                        this.clearAllExpenses();
-                    }}
                 }});
             }}
             
@@ -716,22 +516,12 @@ class AICodeGenie:
                 this.renderExpenses();
                 this.updateDashboard();
                 { 'this.renderCharts();' if "Charts" in features else '' }
-                
-                // Reset form
                 document.getElementById('expenseForm').reset();
                 document.getElementById('date').value = new Date().toISOString().split('T')[0];
             }}
             
             deleteExpense(id) {{
                 this.expenses = this.expenses.filter(expense => expense.id !== id);
-                this.saveExpenses();
-                this.renderExpenses();
-                this.updateDashboard();
-                { 'this.renderCharts();' if "Charts" in features else '' }
-            }}
-            
-            clearAllExpenses() {{
-                this.expenses = [];
                 this.saveExpenses();
                 this.renderExpenses();
                 this.updateDashboard();
@@ -745,7 +535,6 @@ class AICodeGenie:
             renderExpenses() {{
                 const container = document.getElementById('expenseList');
                 container.innerHTML = '';
-                
                 const sortedExpenses = this.expenses.sort((a, b) => new Date(b.date) - new Date(a.date));
                 
                 sortedExpenses.forEach(expense => {{
@@ -789,17 +578,14 @@ class AICodeGenie:
             {chart_js if chart_js else ''}
         }}
         
-        // Initialize the tracker when DOM is loaded
         let tracker;
         document.addEventListener('DOMContentLoaded', () => {{
             tracker = new ExpenseTracker();
-            // Set default date to today
             document.getElementById('date').value = new Date().toISOString().split('T')[0];
         }});
         '''
 
     def _create_sample_expense_data(self, project_path: Path):
-        """Create sample expense data for demo"""
         sample_expenses = [
             {
                 "id": "1",
@@ -816,14 +602,6 @@ class AICodeGenie:
                 "type": "income",
                 "category": "Work",
                 "date": (datetime.now() - timedelta(days=5)).strftime("%Y-%m-%d")
-            },
-            {
-                "id": "3",
-                "description": "Electricity Bill",
-                "amount": 75.30,
-                "type": "expense", 
-                "category": "Utilities",
-                "date": (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
             }
         ]
         
@@ -832,7 +610,6 @@ class AICodeGenie:
         )
 
     def _render_ai_template(self, template_type: str, context: dict):
-        """Render AI-enhanced templates"""
         templates = {
             "expense_tracker": '''
 <!DOCTYPE html>
@@ -913,9 +690,6 @@ class AICodeGenie:
                     </div>
                 </div>
                 <button type="submit" class="btn">Add Transaction</button>
-                <button type="button" id="clearAll" class="btn" style="background: #ef4444; margin-left: 10px;">
-                    Clear All
-                </button>
             </form>
         </div>
         
@@ -933,20 +707,23 @@ class AICodeGenie:
         template = Template(templates.get(template_type, templates["expense_tracker"]))
         return template.render(**context)
 
-    def _create_ai_readme(self, project_path: Path, project_name: str, idea: str, 
+    def _create_ai_readme(self, project_path: Path, project_name: str, idea: str,
                          app_type: str, features: list, colors: dict):
-        """Create AI-enhanced README"""
-        readme_content = f'''# 🚀 {project_name}
+        """Create AI-enhanced README using Jinja2 to avoid f-string parsing issues."""
+        created_at = datetime.now().strftime("%Y-%m-%d at %H:%M:%S")
+        app_type_title = app_type.replace('_', ' ').title()
+
+        readme_template = Template("""# 🚀 {{ project_name }}
 
 ## 🤖 AI-Generated Application
 
-> **Inspired by:** "{idea}"
+> **Inspired by:** "{{ idea }}"
 
 ---
 
 ## 🎯 Project Overview
 
-This is an **AI-powered {app_type.replace('_', ' ').title()}** generated by **CodeGenie Pro v3.0** with advanced machine learning analysis.
+This is an **AI-powered {{ app_type_title }}** generated by **CodeGenie Pro v3.0** with advanced machine learning analysis.
 
 ### ✨ AI Features
 - **Smart Idea Analysis**: Advanced NLP understanding
@@ -964,19 +741,21 @@ This is an **AI-powered {app_type.replace('_', ' ').title()}** generated by **Co
 ## 🎨 Design System
 
 **Color Palette:**
-- Primary: `{colors['primary']}`
-- Secondary: `{colors['secondary']}`  
-- Accent: `{colors['accent']}`
+- Primary: `{{ colors.primary }}`
+- Secondary: `{{ colors.secondary }}`
+- Accent: `{{ colors.accent }}`
 
 ## 🔧 Features
 
-{chr(10).join([f"- ✅ {feature}" for feature in features])}
+{% for feature in features %}
+- {{ feature }}
+{% endfor %}
 
 ## 🚀 Quick Start
 
-1. **Open** `frontend/index.html` in your browser
-2. **Explore** the AI-generated interface
-3. **Customize** the code as needed
+1. **Open** `frontend/index.html` in your browser  
+2. **Explore** the AI-generated interface  
+3. **Customize** the code as needed  
 4. **Deploy** to your preferred platform
 
 ## 📁 Project Structure
