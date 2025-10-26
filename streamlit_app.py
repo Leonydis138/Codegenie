@@ -1,3 +1,4 @@
+pip install streamlit-sortables
 import streamlit as st
 import json, uuid, threading, time
 from pathlib import Path
