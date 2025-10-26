@@ -885,7 +885,7 @@ def main():
     st.markdown("""
     <style>
     .main-header {
-        font-size: 3rem;
+        font-size: 2rem;
         background: linear-gradient(135deg, #00ff9d 0%, #00b8ff 50%, #ff00c8 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
