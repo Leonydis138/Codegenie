@@ -1,4 +1,3 @@
-!pip install --upgrade pip
 import streamlit as st
 import uuid
 import random
@@ -8,6 +7,8 @@ import tensorflow as tf
 import requests
 from pysat.formula import CNF
 from pysat.solvers import Minisat22
+
+subprocess.check_call([sys.executable, "-m", "pip", "install", "--upgrade", "pip"])
 
 # Ethics guard (from previous implementation)
 class EthicsGuard:
