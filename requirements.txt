@@ -15,4 +15,3 @@ tensorflow
 requests
 pysat
 pysat.formula
-pip install --upgrade pip
