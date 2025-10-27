@@ -1,214 +1,148 @@
-pip install streamlit-sortables
 import streamlit as st
-import json, uuid, threading, time
-from pathlib import Path
+import uuid
+import random
+import time
 from datetime import datetime
-from pyvis.network import Network
-import plotly.express as px
-from websocket import create_connection
-import streamlit.components.v1 as components
-from streamlit_sortables import sortable_list
+import tensorflow as tf
+import requests
+from pysat.formula import CNF
+from pysat.solvers import Minisat22
 
-# -----------------------------
-# Config & WebSocket
-# -----------------------------
-WS_URL = "ws://localhost:8000/ws"
+# Ethics guard (from previous implementation)
+class EthicsGuard:
+    def __init__(self, allow_network=False):
+        self.allow_network = allow_network
+        self.approvals = []
 
-def start_ws():
-    ws = create_connection(WS_URL)
-    st.session_state.ws = ws
-    while True:
-        try:
-            msg = ws.recv()
-            data = json.loads(msg)
-            st.session_state.project_data = data
-        except:
-            break
+    def approve(self, actor: str, reason: str):
+        stamp = {"time": time.time(), "actor": actor, "reason": reason}
+        self.approvals.append(stamp)
+        return stamp
 
-if "ws" not in st.session_state:
-    st.session_state.project_data = None
-    threading.Thread(target=start_ws, daemon=True).start()
-    st.info("Connecting to server...")
+# ML Heuristic Optimizer (a basic example)
+class MLHeuristicOptimizer:
+    def __init__(self):
+        self.model = tf.keras.Sequential([
+            tf.keras.layers.Dense(32, activation='relu', input_shape=(3,)),
+            tf.keras.layers.Dense(1, activation='sigmoid')
+        ])
+        self.model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
 
-# Wait for initial data
-while st.session_state.project_data is None:
-    time.sleep(0.1)
+    def train_model(self, X, y):
+        self.model.fit(X, y, epochs=5)
 
-project = st.session_state.project_data["projects"][0]
+    def predict(self, features):
+        return self.model.predict(features)
 
-# -----------------------------
-# Helper Functions
-# -----------------------------
-def save_and_broadcast():
-    st.session_state.ws.send(json.dumps(st.session_state.project_data))
+# Literature manager (for searching papers)
+class LiteratureManager:
+    def __init__(self, api_key=None):
+        self.api_key = api_key
+        self.papers = []
 
-def reorder_tasks(new_order):
-    task_map = {t["id"]:t for t in project["tasks"]}
-    project["tasks"] = [task_map[tid] for tid in new_order if tid in task_map]
-    save_and_broadcast()
+    def search_papers(self, query, max_results=10):
+        headers = {"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
+        url = f"https://api.semanticscholar.org/v1/papers/search?query={query}&limit={max_results}"
+        response = requests.get(url, headers=headers)
+        if response.status_code == 200:
+            data = response.json()
+            self.papers.extend(data['data'])
+        return self.papers
 
-def reorder_subtasks(task_id,new_order):
-    for t in project["tasks"]:
-        if t["id"]==task_id:
-            sub_map = {s["id"]:s for s in t["subtasks"]}
-            t["subtasks"] = [sub_map[sid] for sid in new_order if sid in sub_map]
-            save_and_broadcast()
-            break
+    def summarize_paper(self, paper_id):
+        return f"Summary of paper {paper_id}: This paper discusses the P vs NP problem, focusing on new reductions and algorithmic approaches."
 
-def update_task(task_id, field, value):
-    for t in project["tasks"]:
-        if t["id"]==task_id:
-            t[field]=value
-            save_and_broadcast()
-            break
+# Experiment Runner (to manage SAT problem solving and logging)
+class ExperimentRunner:
+    def __init__(self, ethics: EthicsGuard, ml_optimizer: MLHeuristicOptimizer):
+        self.ethics = ethics
+        self.ml_optimizer = ml_optimizer
 
-def update_subtask(task_id, subtask_id, field, value):
-    for t in project["tasks"]:
-        if t["id"]==task_id:
-            for s in t["subtasks"]:
-                if s["id"]==subtask_id:
-                    s[field]=value
-                    save_and_broadcast()
-                    return
+    def run_random_3sat_benchmark(self, n_vars: int, clause_count: int, solver: str = "python-sat"):
+        task_id = str(uuid.uuid4())
+        clauses = []
+        for _ in range(clause_count):
+            lits = set()
+            while len(lits) < 3:
+                v = random.randint(1, n_vars)
+                sign = random.choice([1, -1])
+                lits.add(sign * v)
+            clauses.append(list(lits))
+        
+        if solver == "python-sat":
+            cnf = CNF()
+            for c in clauses:
+                cnf.append(c)
 
-def add_subtask(task_id,title):
-    for t in project["tasks"]:
-        if t["id"]==task_id:
-            new_id = str(uuid.uuid4())
-            t["subtasks"].append({"id":new_id,"title":title,"status":"todo","depends_on":[]})
-            save_and_broadcast()
-            return
+            solver = Minisat22()
+            solver.append_formula(cnf)
+            result = solver.solve()
 
-def delete_subtask(task_id, subtask_id):
-    for t in project["tasks"]:
-        if t["id"]==task_id:
-            t["subtasks"] = [s for s in t["subtasks"] if s["id"]!=subtask_id]
-            save_and_broadcast()
-            return
+            return {"task_id": task_id, "n_vars": n_vars, "clause_count": clause_count, "result": result}
+        return {"task_id": task_id, "n_vars": n_vars, "clause_count": clause_count, "result": "solver_failed"}
 
-def is_subtask_blocked(subtask, task_subtasks):
-    for dep_id in subtask.get("depends_on",[]):
-        dep = next((s for s in task_subtasks if s["id"]==dep_id), None)
-        if dep and dep["status"] != "done":
-            return True
-    return False
+# Streamlit app to interact with the AI system
+st.title("Autonomous AI Research Assistant for P vs NP")
 
-# -----------------------------
-# Streamlit UI
-# -----------------------------
-st.set_page_config(page_title="CodeGenie Real-Time Collaborative", layout="wide")
-st.title("🧞 CodeGenie Real-Time Collaborative Task Manager")
+# Sidebar for interactions
+st.sidebar.header("Options")
+n_vars = st.sidebar.slider("Number of Variables", min_value=10, max_value=100, value=50)
+clause_count = st.sidebar.slider("Number of Clauses", min_value=20, max_value=200, value=100)
+solver_type = st.sidebar.selectbox("Choose Solver", ["python-sat", "minisat", "other"])
 
-# Drag-and-Drop Tasks
-st.subheader("Drag & Drop Tasks")
-task_titles = [t["title"] for t in project["tasks"]]
-new_order_titles = sortable_list(task_titles,key="tasks_sortable")
-if new_order_titles != task_titles:
-    new_order_ids = [project["tasks"][task_titles.index(t)]["id"] for t in new_order_titles]
-    reorder_tasks(new_order_ids)
-    st.success("Tasks reordered!")
+# Instantiate necessary objects
+ethics_guard = EthicsGuard(allow_network=True)  # Ethics Guard (with network access)
+ml_optimizer = MLHeuristicOptimizer()           # Heuristic Optimizer
+experiment_runner = ExperimentRunner(ethics_guard, ml_optimizer)  # Experiment Runner
+literature_manager = LiteratureManager()  # Literature Manager for papers
 
-# Tasks & Subtasks
-st.subheader("📝 Tasks & Subtasks Editor")
-for t in project["tasks"]:
-    with st.expander(f"{t['title']} - {t['status']} - {t.get('priority','N/A')}"):
-        title = st.text_input("Title", t["title"], key=f"title_{t['id']}")
-        status = st.selectbox("Status", ["todo","in-progress","done"], index=["todo","in-progress","done"].index(t["status"]))
-        if st.button("Save Task", key=f"save_{t['id']}"):
-            update_task(t['id'],"title",title)
-            update_task(t['id'],"status",status)
-            st.success("Task updated!")
+# --- Section to Run Experiments ---
+if st.button("Run SAT Experiment"):
+    with st.spinner("Running SAT experiment..."):
+        # Simulate running an experiment
+        experiment_result = experiment_runner.run_random_3sat_benchmark(n_vars, clause_count, solver_type)
+        st.success(f"Experiment {experiment_result['task_id']} completed!")
+        st.write(f"Solver: {solver_type}")
+        st.write(f"Result: {experiment_result['result']}")
+        st.write(f"Number of Variables: {n_vars}")
+        st.write(f"Number of Clauses: {clause_count}")
 
-        # Subtasks Drag-and-Drop
-        st.markdown("**Subtasks (Drag & Drop)**")
-        sub_titles = [s["title"] for s in t["subtasks"]]
-        new_sub_order = sortable_list(sub_titles,key=f"sub_sortable_{t['id']}")
-        if new_sub_order != sub_titles:
-            new_sub_ids = [t["subtasks"][sub_titles.index(s)]["id"] for s in new_sub_order]
-            reorder_subtasks(t['id'],new_sub_ids)
-            st.success("Subtasks reordered!")
+# --- Section for ML Optimization ---
+if st.button("Optimize Heuristic"):
+    with st.spinner("Optimizing heuristics using ML..."):
+        # Simulate training the ML optimizer (you can add actual data for training here)
+        ml_optimizer.train_model([[random.random(), random.random(), random.random()] for _ in range(100)],
+                                 [random.randint(0, 1) for _ in range(100)])
+        features = [[random.random(), random.random(), random.random()]]
+        prediction = ml_optimizer.predict(features)
+        st.success(f"Optimization completed! Prediction: {prediction[0]}")
 
-        for s in t["subtasks"]:
-            blocked = is_subtask_blocked(s,t['subtasks'])
-            cols = st.columns([3,2,2,1])
-            with cols[0]:
-                new_title = st.text_input("Title", s["title"], key=f"sub_title_{s['id']}")
-            with cols[1]:
-                new_status = st.selectbox("Status", ["todo","in-progress","done"], index=["todo","in-progress","done"].index(s["status"]))
-                if blocked:
-                    st.markdown("⚠️ Blocked due to dependencies")
-                    new_status = "todo"
-            with cols[2]:
-                dep_ids = [x['id'] for x in t["subtasks"] if x['id']!=s['id']]
-                dep_titles = {x['id']:x['title'] for x in t["subtasks"] if x['id']!=s['id']}
-                new_deps = st.multiselect("Depends On", options=dep_ids, format_func=lambda x: dep_titles[x], default=s.get("depends_on",[]), key=f"sub_dep_{s['id']}")
-            with cols[3]:
-                if st.button("Save", key=f"save_sub_{s['id']}"):
-                    s["depends_on"] = new_deps
-                    update_subtask(t['id'],s['id'],"title",new_title)
-                    update_subtask(t['id'],s['id'],"status",new_status)
-                    st.success("Subtask updated!")
-            with st.expander("Delete Subtask"):
-                if st.button("Delete", key=f"del_sub_{s['id']}"):
-                    delete_subtask(t['id'],s['id'])
-                    st.warning("Subtask deleted!")
-                    st.experimental_rerun()
+# --- Section for Literature Review ---
+st.sidebar.header("Search Literature on P vs NP")
+query = st.sidebar.text_input("Enter your query", "P vs NP")
+max_results = st.sidebar.slider("Max results", 1, 10, 5)
 
-        # Add new subtask
-        new_sub_title = st.text_input("New Subtask Title", key=f"new_sub_{t['id']}")
-        if st.button("Add Subtask", key=f"add_sub_{t['id']}") and new_sub_title.strip():
-            add_subtask(t['id'],new_sub_title.strip())
-            st.success("Subtask added!")
-            st.experimental_rerun()
+if st.button("Search Papers"):
+    with st.spinner("Searching for papers..."):
+        papers = literature_manager.search_papers(query, max_results=max_results)
+        if papers:
+            for paper in papers:
+                paper_id = paper['paperId']
+                title = paper['title']
+                summary = literature_manager.summarize_paper(paper_id)
+                st.subheader(f"{title}")
+                st.write(f"Summary: {summary}")
+                st.write(f"Link: https://www.semanticscholar.org/paper/{paper_id}")
+        else:
+            st.warning("No papers found!")
 
-# -----------------------------
-# Dashboard & Analytics
-# -----------------------------
-st.subheader("Project Dashboard")
-total_tasks = len(project["tasks"])
-completed_tasks = len([t for t in project["tasks"] if t["status"]=="done"])
-blocked_subtasks = sum(is_subtask_blocked(s,t["subtasks"]) for t in project["tasks"] for s in t.get("subtasks",[]))
-st.metric("Total Tasks", total_tasks)
-st.metric("Completed Tasks", f"{completed_tasks} ({completed_tasks/total_tasks*100:.1f}%)" if total_tasks>0 else "0%")
-st.metric("Blocked Subtasks", blocked_subtasks)
-st.progress(completed_tasks/total_tasks if total_tasks>0 else 0)
+# --- Display logs and experiment history ---
+st.subheader("Experiment Logs")
+log_file = "experiment_log.txt"
 
-# -----------------------------
-# PyVis Dependency Graph
-# -----------------------------
-def draw_graph():
-    net = Network(height="600px", width="100%", directed=True)
-    status_colors = {"todo":"gray","in-progress":"skyblue","done":"green"}
-    for t in project["tasks"]:
-        overdue = datetime.strptime(t.get("due",datetime.today().strftime("%Y-%m-%d")),"%Y-%m-%d") < datetime.today()
-        color = "red" if overdue else status_colors.get(t["status"],"gray")
-        net.add_node(t["id"], label=t["title"], color=color, size=25, physics=True)
-        for s in t["subtasks"]:
-            blocked = is_subtask_blocked(s,t["subtasks"])
-            s_color = "orange" if blocked else status_colors.get(s["status"],"gray")
-            net.add_node(s["id"], label=s["title"], color=s_color, size=15, physics=True)
-            net.add_edge(t["id"], s["id"])
-            for dep_id in s.get("depends_on",[]):
-                net.add_edge(dep_id,s["id"], color="orange", physics=False)
-    for dep in project.get("dependencies",[]):
-        net.add_edge(dep[0], dep[1], color="black")
-    net.toggle_physics(True)
-    net.show_buttons(filter_=['physics'])
-    net.save_graph("graph.html")
-    html = open("graph.html").read()
-    components.html(html, height=600, scrolling=True)
-
-st.subheader("Dependency Graph")
-draw_graph()
-
-# -----------------------------
-# Gantt Chart
-# -----------------------------
-st.subheader("Gantt Chart")
-df = pd.DataFrame(project["tasks"])
-df['start'] = datetime.today()
-df['end'] = pd.to_datetime(df.get('due',datetime.today().strftime("%Y-%m-%d")))
-color_map = {"todo":"gray","in-progress":"skyblue","done":"green"}
-fig = px.timeline(df, x_start="start", x_end="end", y="title", color="status", color_discrete_map=color_map, hover_data=["title","priority"])
-fig.update_yaxes(autorange="reversed")
-st.plotly_chart(fig,use_container_width=True)
+# Fetch logs from experiment history (store to a file for long-term use)
+if os.path.exists(log_file):
+    with open(log_file, 'r') as log:
+        st.text(log.read())
+else:
+    st.write("No logs available yet.")
