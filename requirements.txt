@@ -12,3 +12,4 @@ pandas
 streamlit-sortables
 tensorflow
 requests
+pysat
