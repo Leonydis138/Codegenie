@@ -11,3 +11,4 @@ pyvis
 pandas
 streamlit-sortables
 tensorflow
+requests
