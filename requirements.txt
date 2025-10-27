@@ -10,3 +10,4 @@ plotly
 pyvis
 pandas
 streamlit-sortables
+tensorflow
