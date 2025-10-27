@@ -13,3 +13,4 @@ streamlit-sortables
 tensorflow
 requests
 pysat
+pysat.formula
